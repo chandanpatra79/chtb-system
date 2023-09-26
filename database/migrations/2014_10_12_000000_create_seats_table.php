@@ -15,7 +15,7 @@ class CreateSeatsTable extends Migration
     {
         Schema::create('seats', function (Blueprint $table) {
             $table->id();
-			$number = range(65,90);
+			$number = range(65,90); // Z - 90, T - 84
 			foreach($number as $n)
 			{
 			  $table->integer( chr($n) )->default(0);
