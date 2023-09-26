@@ -13,26 +13,26 @@ class SeatSeeder extends Seeder
     {
         //
 		$arr =  [
-		        'A','B','C',
+
+                'A','B','C',
 				'D','E','F',
 				'G','H','I',
 				'J','K','L',
 				'M','N','O',
 				'P','Q','R',
-				'S','T','U',
-				'V','W','X',
-				'Y','Z'];
-		
+				'S','T'
+        ];
+
 		$res =[];
 		foreach($arr as $val)
 		{
 			$res[$val] = 0;
 		}
-		
+
 		for($i=1; $i<=10; $i++)
 		{
 		  Seat::create($res);
 		}
-		
+
     }
 }

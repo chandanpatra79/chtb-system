@@ -25,21 +25,10 @@ class BookingController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-
-    }
-
-    /**
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
@@ -48,7 +37,7 @@ class BookingController extends Controller
 
         // VALIDATION
         $rules = [
-            'chosenSeat' => 'required|regex:/^[A-Z][1-9][0]?$/',
+            'chosenSeat' => 'required|regex:/^[A-T][1-9][0]?$/',
             'reqTicket'  => 'required|numeric|max:5|min:1',
         ];
 
@@ -60,27 +49,48 @@ class BookingController extends Controller
                          ->withInput($request->all());
         }
 
+        $ret = $this->bookSeats($data['chosenSeat'], $data['reqTicket']);
+
+        if( isset($ret['list']) && $ret['error'] == 0 )
+        {
+            $msg = implode(", ", $ret['list']) . " Were Allotted";
+            return back()->with('success', $msg);
+        }
+        else
+        {
+            $msg = "These tickets can not be booked. I suggest these seats : " . implode(", " , $ret['suggestions']) ;
+            return back()->withErrors( [ $msg ] )
+                         ->withInput($request->all());
+        }
+
+    }
+
+    /**
+     * Checks if TICKETS available in any ROW
+     *
+     * @param string chosenSeat
+     * @param int reqTicket
+     * @return mixed Array
+     */
+    private function isSeatAvailable($row, $col, $reqTicket)
+    {
+
         // CALCULATION
         $allseats = SEAT::get()->toArray();
-        $seatNames = Seat::SEATNAMES;
-        // P15
-        $col = substr($data['chosenSeat'], 0, 1); // P
-        $row = intval( substr($data['chosenSeat'], 1) ); // 15
+
         $origRow = $row-1;  // As array starts from ZERO, not ONE
 
-
+        // Look Up
         $startCol = $col;
         $ticketCanBeGiven = 0;
 
-        for($i=1; $i <= $data['reqTicket']; $i ++)
+        for($i=1; $i <= $reqTicket; $i ++)
         {
            $found = 0;
            $foundSeats = [];
 
-           // echo "<br> ITERATION $i [$col]<br>";
-           for($j=1; $j <= $data['reqTicket']; $j ++)
+           for($j=1; $j <= $reqTicket; $j ++)
            {
-              // echo " [CHECKING $startCol - $origRow], ";
               if( isset($allseats[$origRow][$startCol]) && $allseats[$origRow][$startCol] == 0 )
               {
                 $foundSeats[] = "$startCol" . ( 1 + intval($origRow) );
@@ -96,7 +106,111 @@ class BookingController extends Controller
            }
 
            // All Ticket found Side by Side
-           if( $found == $data['reqTicket'] )
+           if( $found == $reqTicket)
+           {
+                $ticketCanBeGiven = 1;
+                break;
+           }
+
+           $startCol = chr(ord($col) - $i);
+        }
+
+        if($ticketCanBeGiven)
+        {
+            // Return Suggested List
+            return $foundSeats;
+        }
+        else
+        {
+            return false;
+        }
+
+    }
+
+    /**
+     * PROVIDES Suggestions
+     *
+     * @param string chosenSeat
+     * @param int reqTicket
+     * @return mixed Array
+     */
+    private function getSuggestions($chosenSeat, $reqTicket)
+    {
+        // CALCULATION
+        $allseats = SEAT::get()->toArray();
+        $seatNames = Seat::SEATNAMES;
+
+        // P15
+        $col = substr($chosenSeat, 0, 1); // P
+        $row = intval( substr($chosenSeat, 1) ); // 15
+        $origRow = $row-1;  // As array starts from ZERO, not ONE
+
+        $nextRowSearch = 0;
+        $prevRowSearch = 0;
+
+        $suggesttionArray = [];
+
+        if( $row == 1 )
+        {
+            $suggesttionArray = $this->isSeatAvailable($row + 1, $col, $reqTicket);
+        }
+        else if( $row == 10 )
+        {
+            $suggesttionArray = $this->isSeatAvailable($row - 1, $col, $reqTicket);
+        }
+        else
+        {
+            $suggesttionArray = $this->isSeatAvailable($row + 1, $col, $reqTicket);
+            $suggesttionArray = $this->isSeatAvailable($row - 1, $col, $reqTicket);
+        }
+
+        return $suggesttionArray;
+    }
+
+    /**
+     * Searches and Books Tickets, Updates DB
+     *
+     * @param string chosenSeat
+     * @param int reqTicket
+     * @return mixed Array
+     */
+    public function bookSeats($chosenSeat, $reqTicket)
+    {
+        // CALCULATION
+        $allseats = SEAT::get()->toArray();
+
+        // P15
+        $col = substr($chosenSeat, 0, 1); // P
+        $row = intval( substr($chosenSeat, 1) ); // 15
+        $origRow = $row-1;  // As array starts from ZERO, not ONE
+
+        // Look Up
+        $startCol = $col;
+        $ticketCanBeGiven = 0;
+
+        for($i=1; $i <= $reqTicket; $i ++)
+        {
+           $found = 0;
+           $foundSeats = [];
+
+           for($j=1; $j <= $reqTicket; $j ++)
+           {
+              if( isset($allseats[$origRow][$startCol]) && $allseats[$origRow][$startCol] == 0 )
+              {
+                $foundSeats[] = "$startCol" . ( 1 + intval($origRow) );
+                $found ++;
+              }
+              else
+              {
+                break;
+              }
+
+              $startCol = chr(ord($startCol)+1);
+
+           }
+
+           // All Ticket found Side by Side
+           if( $found == $reqTicket)
            {
                 $ticketCanBeGiven = 1;
                 break;
@@ -116,60 +230,14 @@ class BookingController extends Controller
             }
 
             // Return with Success Message
-            $str = implode(", ", $foundSeats) . " were Allotted with Thanks";
-            return back()->with('success', $str);
+            return ['error' => 0, 'list' => $foundSeats ];
         }
         else
         {
-            // ERRORs
-            return back()->withErrors( ["Tickets Can not be given"] )
-                         ->withInput($request->all());
+
+            return ['error' => 1, 'suggestions' => $this->getSuggestions($chosenSeat, $reqTicket) ];
         }
-
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
-    }
 }

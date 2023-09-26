@@ -17,4 +17,15 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// with UI
 Route::resource('booking', 'BookingController');
+
+// TEST Functions
+Route::get('bookingtest', function(){
+
+    $ret = App::make('\App\Http\Controllers\BookingController')->bookSeats('J1', 4);
+
+    print_r( $ret );
+
+
+});
