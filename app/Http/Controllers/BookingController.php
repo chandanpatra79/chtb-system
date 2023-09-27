@@ -160,8 +160,9 @@ class BookingController extends Controller
         }
         else
         {
-            $suggesttionArray = $this->isSeatAvailable($row + 1, $col, $reqTicket);
-            $suggesttionArray = $this->isSeatAvailable($row - 1, $col, $reqTicket);
+            $arr1 = $this->isSeatAvailable($row + 1, $col, $reqTicket);
+            $arr2 = $this->isSeatAvailable($row - 1, $col, $reqTicket);
+            $suggesttionArray = array_merge($arr1,$arr2);
         }
 
         return $suggesttionArray;
